@@ -1,0 +1,367 @@
+#!/bin/bash
+# Name: Jason Watson
+# CS344 Assignment 1
+
+# This program will consist of a series of functions that are designed to perform a variety of operations of two matrices, contained in files matrix1 and matrix2
+
+
+#dims() function:
+
+# per assignment description, the dims function 'should print the dimensions of the matrix as the number of rows, followed by a space, then the number of columns
+# I got inspiration for the basic structure of this function, from the bigloops function in the assigned reading.
+
+dims() {
+	
+	# First, check if there is more than 1 argument.  
+	if [ "$#" -gt 1 ]
+	then
+		echo "Error.  There is more than 1 argument!" 1>&2
+		exit 1
+	fi
+
+	# Check if there is less than 1 argument.  
+	if [ "$#" -lt 1 ]
+	then
+		echo "Error.  There is less than 1 argument!" 1>&2
+		exit 1
+	fi
+
+	# check if the file exists.  I got help from https://askubuntu.com/questions/558977/checking-for-a-file-and-whether-it-is-readable-and-writable
+	if [ ! -e $1 ]
+	then
+		echo "Error.  File does not exist!" 1>&2
+		exit 1
+	fi 
+	
+	rowCount=0
+
+	# read each line of file
+	while read myLine
+	do
+		colCount=0
+		# add 1 to row with each loop
+		rowCount=$(expr $rowCount + 1)
+
+		# for each i in myLine, add to column count
+		for i in $myLine
+		do
+			num=$i
+			colCount=$(expr $colCount + 1)
+		done
+
+	done < $1
+
+	echo "$rowCount $colCount"
+}
+
+# internalDims() function:
+# This is a helper function that other functions in the matrix program will call to get the dimensions of the matrix.  
+
+internalDims() {
+
+	rowCount=0
+
+	while read myLine
+	do
+		colCount=0
+		rowCount=$(expr $rowCount + 1)
+
+		for i in $myLine
+		do
+			num=$i
+			colCount=$(expr $colCount + 1)
+		done
+	done < $1
+}
+
+
+# transpose() function:
+# the transpose function "should reflect the elements of the matrix along the main diagonal.  Thus, an MxN matrix will
+# become an NxM matrix and the values along the main diagonal will remain unchanged.
+  
+transpose() {
+
+	# First, check to see if there is more than 1 argument.  If there is, then exit the program.
+	if [ "$#" -gt 1 ]
+	then
+		echo "Error.  There is more than 1 argument!" 1>&2
+		exit 1
+	fi
+
+	# Check if there is less than 1 argument.  If there is, then exit the program.
+	if [ "$#" -lt 1 ]
+	then
+		echo "Error.  There is less than 1 argument!" 1>&2
+		exit 1
+	fi
+
+	# check if the file is readable.  I got help from https://askubuntu.com/questions/558977/checking-for-a-file-and-whether-it-is-readable-and-writable
+	if [ ! -r $1 ]
+	then
+		echo "Error.  File not readable!" 1>&2
+		exit 1
+	fi 
+
+	rowCount=0
+	colCount=0
+
+	# create temporary transposefile to store transponssed matrix
+	transpose="transposefile$$"
+	# remove file using trap command.  This is so that if the program exits unexpectedly, it will remove the temporary file.  I got this example from piazza and the lectures.
+	trap "rm-f $transpose; echo 'CTRL+C received, exiting'; exit 1" INT HUP TERM
+
+	# call internalDims function to get matrix dimensions
+	internalDims $1
+
+	# Use while loop.  Cut each element from beginning to end from the passed in file. Pipe in paste command and add to temporary transpose file. 
+	i=1
+
+	while [ $i -le $colCount ]
+	do
+		cut -f "$i" "$1" | paste -s >> $transpose
+		i=$(expr $i + 1)
+	done < $1		
+
+	# print out contents of transpose file
+	cat $transpose
+
+	# remove temporary transpose file.  
+	rm -f $transpose
+
+}
+
+# mean() function:
+
+# the mean function "should take an MxN matrix and return an 1xN row vector, where the first element if the mean of column one
+# the second element is the mean of column two, and so on.
+
+mean() {
+
+	# first, check to see if there is more than 1 argument.  If there is then exit the program with error message.
+	if [ "$#" -gt 1 ]
+	then
+		echo "Error.  There is more than 1 argument!" 1>&2
+		exit 1
+	fi
+
+# Check to see if there is less than 1 argument.  If there is then exit the program with error message.
+	if [ "$#" -lt 1 ]
+	then
+		echo "Error.  There is less than 1 argument!" 1>&2
+		exit1
+	fi
+
+	if [ ! -r $1 ]
+	then
+		echo "Error. File not readable!" 1>&2
+		exit 1
+	fi
+
+	rowCount=0
+	colCount=0
+
+	internalDims $1
+
+	i=1
+
+	while [ $i -le $colCount ]
+	do
+		sum=0
+		# cut each element at $i
+		column=$(cut -f "$i" "$1")
+		for a in $column
+		do
+			sum=$(expr $sum + $a)
+		done
+		# use the formula given in the program 1 assignment description to round mean to the nearest integer
+		mean=$((($sum + ($rowCount/2)*( ($sum>0)*2-1))/$rowCount))	
+		
+		# use the printf function to print out mean when i is equal to column count of matrix.  It will also include newline character.
+		# otherwise, print out mean with tab character.  
+		if [ $colCount == $i ]
+		then
+			printf "%s\n" $mean
+		else
+			printf "%s\t" $mean
+		fi
+		# increment i (equivalent to i++)
+		i=$(expr $i + 1)
+	done < $1
+}
+
+# the add function "should take two MxN matrices and add them together element-wise to produce an MxN matrix.
+# add should return an error if the matrices do not have the same dimensions.  
+
+add() {
+
+	# first, check to see if there are more than 2 arguments.  If there is, then output error message and exit out of program.
+	if [ "$#" -gt 2 ]
+	then
+		echo "Error.  More than 2 arguments." 1>&2
+		exit 1
+	fi
+
+	# check if there is less than 2 arguments.  If there is, then output error message and exit out of program.
+	if [ "$#" -lt 2 ]
+	then
+		echo "Error.  Less than 2 arguments." 1>&2
+		exit 1
+	fi
+
+	if [[ ! -r "$1" || ! -r "$2" ]]
+	then
+		echo "Error.  A file is not readable." 1>&2
+		exit 1
+	fi
+
+	# assign dimensions of both matrices into variables.
+	rowCount=0
+	colCount=0
+	internalDims $1
+	colCountMat1=$colCount
+	rowCountMat1=$rowCount
+	
+
+	rowCount=0
+	colCount=0
+	internalDims $2
+	colCountMat2=$colCount
+	rowCountMat2=$rowCount
+
+	# Check, using dimensions from above, if arguments are valid for matrix addition.  If not, then print error and exit program.
+	if [[ ($colCountMat1 != $colCountMat2) && ($rowCountMat1 != $rowCountMat2) ]]
+	then
+		echo "Error.  Adding mismatched matrices!" 1>&2
+		exit 1
+	fi
+
+
+	i=1
+	# use while loop.  Assign variables n1 and n2, with n1 and n2 representing rows of matrices. 
+	while [ $i -le $rowCountMat1 ]
+	do
+		n1=$(head "-$i" "$1" | tail -1)
+		n2=$(head "-$i" "$2" | tail -1)
+
+		j=1
+		# output each row, and pipe in cut command, snipping each element at $j
+		while [ $j -le $colCountMat1 ]
+		do
+			x=$(echo "$n1" | cut -d'	' -f $j)
+			y=$(echo "$n2" | cut -d'	' -f $j)
+			# find the sum of each element at $j
+			sum=$(expr $x + $y)
+
+			# if j is equal to the column count of $1, then print sum with newline
+			# else, print sum with a tab
+			if [ $j == $colCountMat1 ]
+			then
+				printf "%s\n" $sum
+			else
+				printf "%s\t" $sum
+			fi
+				
+			j=$(expr $j + 1)
+		done
+		i=$(expr $i + 1)
+
+	done < $1 < $2
+
+}
+
+# multiply() function:
+# the multiply function "should take an MxN and NxP matrix and produce an MxP matrix.
+# note that, unlike addition, matrix multiplication is not cummatative.  A*B != B*A.
+
+
+multiply() {
+
+	# first, check if there are more than 2 arguments.  If there is, then output error message and exit program	
+	if [ "$#" -gt 2 ]
+	then
+		echo "Error.  More than 2 arguments." 1>&2
+		exit 1
+	fi
+
+	# check if there are less than 2 arguments.  If there is, then output error message and exit program.
+	if [ "$#" -lt 2 ]
+	then
+		echo "Error.  Less than 2 arguments." 1>&2
+		exit 1
+	fi
+
+	if [[ ! -r "$1" || ! -r "$2" ]]
+	then
+		echo "Error.  A file is not readable." 1>&2
+		exit 1
+	fi
+
+	# use the same method as the add function to assign each dimension of matrices into variables.  
+	rowCount=0
+	colCount=0
+	internalDims $1
+	colCountMat1=$colCount
+	rowCountMat1=$rowCount
+	
+
+	rowCount=0
+	colCount=0
+	internalDims $2
+	colCountMat2=$colCount
+	rowCountMat2=$rowCount
+	
+
+	# Check if the dimensions are valid for matrix multiplication.  If it is not, then output error message and exit program.	
+	if [ $colCountMat1 != $rowCountMat2 ]
+	then
+		echo "Error.  Multiplying mismatched matrices!" 1>&2
+		exit 1
+	fi
+
+	i=1
+	# prod variable will store the product.  
+	prod=0
+
+	# use while loop.  Use same method as add function to cut out individual elements of matrices.
+	while [ $i -le $rowCountMat1 ]
+	do
+		n1=$(head "-$i" "$1" | tail -1)
+
+		j=1
+		while [ $j -le $colCountMat2 ]
+		do
+			n2=$(cut -f $j $2 | tr '\n' '\t')
+			
+			k=1
+			# create variable to hold each product as it accumulates.  Zero it out when it reaches new column.
+			addElement=0
+			while [ $k -le $colCountMat1 ]
+			do
+				x=$(echo "$n1" | cut -d'	' -f $k)
+				y=$(echo "$n2" | cut -d'	' -f $k)
+			
+				prod=$(( $x * $y ))
+				# add together each product to multiply matrix
+				addElement=$(expr $prod + $addElement)				
+				k=$(expr $k + 1)
+			done
+		
+			# Used the same method I used with mean and add functions. if j is equal to the column count of second matrix, 
+			# then it will print out addElement with a newline.  otherwise, it should print out addElement with a tab character.  
+			if [ $j == $colCountMat2 ]
+			then
+				printf "%s\n" $addElement
+			else
+				printf "%s\t" $addElement
+			fi
+ 
+			j=$(expr $j + 1)
+		done
+	i=$(expr $i + 1)
+
+	done < $1 < $2
+	
+}
+$1 "${@:2}"
+
+
